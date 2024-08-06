@@ -244,7 +244,7 @@ def read_adjacency_matrices(file_path):
     return graph
 
 
-def visualize_domains(graph, final_path=None, num_nodes=60):
+def visualize_domains(graph, final_path=None, num_nodes=120):
     """
     Visualizes the domain graph with nodes and edges.
     Highlights the final path if provided.

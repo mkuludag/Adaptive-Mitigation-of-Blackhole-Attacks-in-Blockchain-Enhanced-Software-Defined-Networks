@@ -32,7 +32,7 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
                 nodes_to_attack = test_nodes[t // attacks_per_interval]
             else:
                 possible_nodes = list(set(network_graph.nodes) - {start_node, destination_node})
-                nodes_to_attack = random.sample(possible_nodes, k=random.randint(5, 10))
+                nodes_to_attack = random.sample(possible_nodes, k=random.randint(5, 15))
             
             initial_pdr = calculate_packet_delivery_ratio(network_graph, [initial_path])
             
@@ -68,8 +68,9 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
         print(path)
 
     # Plot PDR over time and number of attacks
-    plot_pdr_over_time(pdr_values_time, 60)
-    plot_pdr_vs_attacks(pdr_values_attack, 60)
+    nodes = 120
+    plot_pdr_over_time(pdr_values_time, nodes)
+    plot_pdr_vs_attacks(pdr_values_attack, nodes)
 
     save_results()
 
@@ -131,10 +132,10 @@ def save_results():
         os.makedirs('results')
 
 if __name__ == "__main__":
-    file_path = 'Test_data/MKU_files/internetworks/adjacency_60_0_7_1_updated.txt'
+    file_path = 'Test_data/MKU_files/internetworks/adjacency_120_0_7_1_updated.txt'
     start_node = 0  
-    destination_node = 20
-    duration = 25
-    num_attacks = 25
-    test_nodes = [[11, 39],]
-    run_simulation(file_path, start_node, destination_node, duration, num_attacks, test_nodes=test_nodes)
+    destination_node = 65
+    duration = 35
+    num_attacks = 35
+    #test_nodes = [[11, 39],]
+    run_simulation(file_path, start_node, destination_node, duration, num_attacks)
