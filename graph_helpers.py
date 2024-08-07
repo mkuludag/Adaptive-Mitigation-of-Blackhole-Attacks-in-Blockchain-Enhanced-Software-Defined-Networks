@@ -146,10 +146,7 @@ def calculate_packet_delivery_ratio(graph, paths):
         
         total_pdr += path_pdr
     
-    return total_pdr / num_paths if num_paths else 100
-    
-    # Return average PDR across all paths, defaulting to 100 if no paths
-    return total_pdr / num_paths if num_paths else 100
+    return min(total_pdr / num_paths if num_paths else 100, 100)
 
 
 def find_node_disjoint_path(graph, start_node, destination_node, exclude_nodes):

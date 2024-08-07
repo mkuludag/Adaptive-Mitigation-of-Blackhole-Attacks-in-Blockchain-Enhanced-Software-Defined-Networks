@@ -1,15 +1,11 @@
-import networkx as nx
-import matplotlib.pyplot as plt
-import random
-from queue import PriorityQueue
-import os
-from mpl_toolkits.mplot3d import Axes3D
-import argparse
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import os
+from queue import PriorityQueue
+import random
 
-from graph_helpers import read_adjacency_matrices, find_shortest_path, visualize_domains, deactivate_node, calculate_packet_delivery_ratio, find_node_disjoint_path, add_node_disjoint_path
-
-plt.switch_backend('TkAgg')
+from graph_helpers import read_adjacency_matrices, find_shortest_path, deactivate_node, calculate_packet_delivery_ratio, find_node_disjoint_path, add_node_disjoint_path
 
 def run_simulation(file_path, start_node, destination_node, duration, num_attacks, th_1=98.0, decrease_range=(1, 10), test_nodes=None):
     network_graph = read_adjacency_matrices(file_path)
@@ -28,7 +24,7 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
 
     for t in range(duration):
         print(f"Attack #{t // attacks_per_interval + 1}")
-        
+
         # Attack a specified set of nodes if test_nodes is set, otherwise choose randomly
         if t % attacks_per_interval == 0:
             if test_nodes and t // attacks_per_interval < len(test_nodes):
@@ -48,8 +44,7 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
             new_pdr = calculate_packet_delivery_ratio(network_graph, [initial_path])
             new_pdr = initial_pdr - (initial_pdr - new_pdr)
             new_pdr2 = None
-
-            if new_pdr < th_1:
+            if new_pdr < th_1: # this is wrongggggggggggggggggggg!!!!!!!!!!!
                 current_paths, initial_pdr, new_pdr2 = adapt_to_attack(network_graph, start_node, destination_node, current_paths, th_1, new_pdr)
 
             if not current_paths.empty():
@@ -59,6 +54,8 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
 
         # Record PDR value at each second
         pdr_values_time.append(new_pdr)
+        # if new_pdr2:
+        #     pdr_values_time.append(new_pdr2)
 
         # Record PDR value after each attack based on the number of attacked nodes
         if t % attacks_per_interval == 0:
@@ -70,8 +67,8 @@ def adapt_to_attack(graph, start_node, destination_node, current_paths, th_1, ne
     paths = []
     while not current_paths.empty():
         paths.append(current_paths.get()[1])    
-
-    if new_pdr < th_1:
+    
+    while new_pdr < th_1:
         new_path = find_node_disjoint_path(graph, start_node, destination_node, paths[0])
         if new_path:
             paths[-1] = new_path
@@ -87,65 +84,12 @@ def adapt_to_attack(graph, start_node, destination_node, current_paths, th_1, ne
                 print(f"Added path: {path} new_pdr: {new_pdr}")
             print(current_paths.qsize())
         
+        if new_pdr >= th_1:
+            break
 
     return current_paths, new_pdr, new_pdr
 
-def plot_pdr_over_time(pdr_values, num_nodes):
-    x_values = list(range(len(pdr_values)))
-    
-    plt.figure(figsize=(12, 6))
-    plt.plot(x_values, pdr_values, marker='o', linestyle='-', color='b')
-    plt.title('Packet Delivery Ratio (PDR) Over Time', fontsize=16)
-    plt.xlabel('Time (seconds)', fontsize=14)
-    plt.ylabel('PDR (%)', fontsize=14)
-    plt.ylim(90, 100)
-    plt.grid(True)
-    filename = f'results/pdr_over_time_{num_nodes}.png'
-    plt.savefig(filename)
-    #plt.show()
-
-def plot_pdr_vs_attacks(pdr_values_attack, num_nodes):
-    attacked_nodes, pdr_values = zip(*pdr_values_attack)
-    plt.figure(figsize=(12, 6))
-    plt.plot(attacked_nodes, pdr_values, marker='o', linestyle='-', color='r')
-    plt.title('Packet Delivery Ratio (PDR) vs Number of Nodes Attacked', fontsize=16)
-    plt.xlabel('Number of Nodes Attacked', fontsize=14)
-    plt.ylabel('PDR (%)', fontsize=14)
-    plt.ylim(90, 100)
-    plt.grid(True)
-    filename = f'results/pdr_vs_attacks_{num_nodes}.png'
-    plt.savefig(filename)
-    #plt.show()
-
-
-def plot_3d_pdr_vs_time_and_attacks(pdr_values_time, pdr_values_attack, num_nodes):
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    pdr_values_time = pdr_values_time[:-1]
-    time_values = list(range(len(pdr_values_time)))
-    attacked_nodes, pdr_values_attacked = zip(*pdr_values_attack)
-    
-    # Ensure both arrays are of the same length
-    if len(time_values) > len(attacked_nodes):
-        attacked_nodes = list(attacked_nodes) + [attacked_nodes[-1]] * (len(time_values) - len(attacked_nodes))
-        pdr_values_attacked = list(pdr_values_attacked) + [pdr_values_attacked[-1]] * (len(time_values) - len(attacked_nodes))
-    elif len(time_values) < len(attacked_nodes):
-        time_values = time_values + [time_values[-1]] * (len(attacked_nodes) - len(time_values))
-        pdr_values_time = pdr_values_time + [pdr_values_time[-1]] * (len(attacked_nodes) - len(time_values))
-
-    ax.plot(time_values, attacked_nodes, pdr_values_time, marker='o', linestyle='-', color='b', label='PDR over Time')
-    ax.plot(time_values, attacked_nodes, pdr_values_attacked, marker='x', linestyle='--', color='r', label='PDR vs Attacks')
-    
-    ax.set_title('3D Plot of PDR over Time and Number of Nodes Attacked', fontsize=16)
-    ax.set_xlabel('Time (seconds)', fontsize=14)
-    ax.set_ylabel('Number of Nodes Attacked', fontsize=14)
-    ax.set_zlabel('PDR (%)', fontsize=14)
-    ax.legend()
-    filename = f'results/pdr_vs_time_vs_attacks_{num_nodes}.png'
-    plt.savefig(filename)
-    #plt.show()
-    
-def plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration, num_nodes):
+def plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration):
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
     
@@ -158,34 +102,16 @@ def plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration, num_nodes
     ax.set_xlabel('Time (seconds)', fontsize=14)
     ax.set_ylabel('Threshold (th_1)', fontsize=14)
     ax.set_zlabel('PDR (%)', fontsize=14)
-    filename = f'results/pdr_vs_thresh_vs_time_{num_nodes}.png'
-    plt.savefig(filename)
+    
     plt.show()
 
-
-def save_results():
-    if not os.path.exists('results'):
-        os.makedirs('results')
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run network simulation.")
-    parser.add_argument("--th_1", type=float, default=98.0, help="Threshold value for PDR")
-    args = parser.parse_args()
-
-    th_1 = args.th_1
-    num_nodes = '120'
-    file_path = f'Test_data/MKU_files/internetworks/adjacency_{num_nodes}_0_7_1_updated.txt'
-    start_node = 0  
+def main():
+    file_path = 'Test_data/MKU_files/internetworks/adjacency_120_0_7_1_updated.txt'
+    start_node = 0
     destination_node = 65
     duration = 35
     num_attacks = 35
-    #test_nodes = [[11, 39],]
-    #run_simulation(file_path, start_node, destination_node, duration, num_attacks, th_1)
-    
-    
-    # th testing: 
     thresholds = [1, 2, 3, 4, 5]
-    thresholds = [100 - t for t in thresholds]
 
     pdr_values_time = []
 
@@ -193,4 +119,7 @@ if __name__ == "__main__":
         pdr_values = run_simulation(file_path, start_node, destination_node, duration, num_attacks, th_1)
         pdr_values_time.append(pdr_values)
 
-    plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration, num_nodes)
+    plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration)
+
+if __name__ == "__main__":
+    main()
