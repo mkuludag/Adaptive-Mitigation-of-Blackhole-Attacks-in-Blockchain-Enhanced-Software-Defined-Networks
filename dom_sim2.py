@@ -1,11 +1,12 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import random
-from queue import PriorityQueue
+import pandas as pd
 import os
-from mpl_toolkits.mplot3d import Axes3D
+from queue import PriorityQueue
 import argparse
 import numpy as np
+import re
 
 from graph_helpers import read_adjacency_matrices, find_shortest_path, visualize_domains, deactivate_node, calculate_packet_delivery_ratio, find_node_disjoint_path, add_node_disjoint_path
 
@@ -23,11 +24,15 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
     pdr_values_attack = []   # For PDR as the number of nodes attacked increases
     attacked_nodes = set()
     
+    # Track min and max PDR
+    min_pdr = 100.0
+    max_pdr = 100.0
+    
     # Determine the number of attacks per time interval
     attacks_per_interval = duration // num_attacks
-
+    
     for t in range(duration):
-        print(f"Attack #{t // attacks_per_interval + 1}")
+        #print(f"Attack #{t // attacks_per_interval + 1}")
         
         # Attack a specified set of nodes if test_nodes is set, otherwise choose randomly
         if t % attacks_per_interval == 0:
@@ -59,12 +64,19 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
 
         # Record PDR value at each second
         pdr_values_time.append(new_pdr)
+        
+        # Update min and max PDR values
+        if new_pdr < min_pdr:
+            min_pdr = new_pdr
+        if new_pdr > max_pdr:
+            max_pdr = new_pdr
 
         # Record PDR value after each attack based on the number of attacked nodes
         if t % attacks_per_interval == 0:
             pdr_values_attack.append((len(attacked_nodes), new_pdr))
 
-    return pdr_values_time
+    # Return the collected PDR values and other relevant data
+    return pdr_values_time, min_pdr, max_pdr, th_1, len(attacked_nodes), duration
 
 def adapt_to_attack(graph, start_node, destination_node, current_paths, th_1, new_pdr):
     paths = []
@@ -90,6 +102,15 @@ def adapt_to_attack(graph, start_node, destination_node, current_paths, th_1, ne
 
     return current_paths, new_pdr, new_pdr
 
+def save_results_to_excel(data, file_name="simulation_results.xlsx"):
+    output_dir = "results/Simulation_data"
+        
+    os.makedirs(output_dir, exist_ok=True)
+    
+    file_path = os.path.join(output_dir, file_name)
+    with pd.ExcelWriter(file_path, mode="a", engine="openpyxl") as writer:
+        data.to_excel(writer, sheet_name="Run_{}".format(len(writer.sheets) + 1))
+
 def plot_pdr_over_time(pdr_values, num_nodes):
     x_values = list(range(len(pdr_values)))
     
@@ -102,7 +123,6 @@ def plot_pdr_over_time(pdr_values, num_nodes):
     plt.grid(True)
     filename = f'results/pdr_over_time_{num_nodes}.png'
     plt.savefig(filename)
-    #plt.show()
 
 def plot_pdr_vs_attacks(pdr_values_attack, num_nodes):
     attacked_nodes, pdr_values = zip(*pdr_values_attack)
@@ -115,82 +135,89 @@ def plot_pdr_vs_attacks(pdr_values_attack, num_nodes):
     plt.grid(True)
     filename = f'results/pdr_vs_attacks_{num_nodes}.png'
     plt.savefig(filename)
-    #plt.show()
-
-
-def plot_3d_pdr_vs_time_and_attacks(pdr_values_time, pdr_values_attack, num_nodes):
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    pdr_values_time = pdr_values_time[:-1]
-    time_values = list(range(len(pdr_values_time)))
-    attacked_nodes, pdr_values_attacked = zip(*pdr_values_attack)
     
-    # Ensure both arrays are of the same length
-    if len(time_values) > len(attacked_nodes):
-        attacked_nodes = list(attacked_nodes) + [attacked_nodes[-1]] * (len(time_values) - len(attacked_nodes))
-        pdr_values_attacked = list(pdr_values_attacked) + [pdr_values_attacked[-1]] * (len(time_values) - len(attacked_nodes))
-    elif len(time_values) < len(attacked_nodes):
-        time_values = time_values + [time_values[-1]] * (len(attacked_nodes) - len(time_values))
-        pdr_values_time = pdr_values_time + [pdr_values_time[-1]] * (len(attacked_nodes) - len(time_values))
 
-    ax.plot(time_values, attacked_nodes, pdr_values_time, marker='o', linestyle='-', color='b', label='PDR over Time')
-    ax.plot(time_values, attacked_nodes, pdr_values_attacked, marker='x', linestyle='--', color='r', label='PDR vs Attacks')
+def extract_num_nodes(file_name):
+    match = re.search(r'adjacency_(\d+)_', file_name)
+    if match:
+        num_nodes = match.group(1)
+        return int(num_nodes)
+    else:
+        raise ValueError("Number of nodes not found in the file name")
+
+def run_and_record_simulations(file_path, duration, num_attacks, num_runs=10):
+    file_name = os.path.basename(file_path)
+    num_nodes = extract_num_nodes(file_name)
+    results = []
+    thresholds = [1, 2, 3, 4, 5]
+    thresholds = [100 - t for t in thresholds]
     
-    ax.set_title('3D Plot of PDR over Time and Number of Nodes Attacked', fontsize=16)
-    ax.set_xlabel('Time (seconds)', fontsize=14)
-    ax.set_ylabel('Number of Nodes Attacked', fontsize=14)
-    ax.set_zlabel('PDR (%)', fontsize=14)
-    ax.legend()
-    filename = f'results/pdr_vs_time_vs_attacks_{num_nodes}.png'
-    plt.savefig(filename)
-    #plt.show()
     
-def plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration, num_nodes):
+    for i in range(num_runs):
+        pdr_values_arr = []
+        start_node, destination_node = random.sample(range(num_nodes - 1), 2)  
+        for th_1 in thresholds:
+            pdr_values_time, min_pdr, max_pdr, threshold_value, num_attacks_nodes, duration = run_simulation(
+                file_path, start_node, destination_node, duration, num_attacks, th_1
+            )
+            pdr_values_arr.append(pdr_values_time)
+            
+            
+            results.append({
+                "File Name": file_name,
+                "Start Node": start_node,
+                "End Node": destination_node,
+                "Min PDR": min_pdr,
+                "Max PDR": max_pdr,
+                "Threshold": threshold_value,
+                "Number of Attacks so far": num_attacks_nodes,
+                "Number of Attacks per round": num_attacks,
+                "Duration": duration,
+            })
+        plot_3d_thresholds_pdr_time(thresholds, pdr_values_arr, duration, num_nodes, file_name, i)
+    # Save the results to an Excel file
+    
+    
+    df = pd.DataFrame(results)
+    save_results_to_excel(df)
+    
+def plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration, num_nodes, file_name, run_number):
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
     
     X, Y = np.meshgrid(range(duration + 1), thresholds)
-    Z = np.array(pdr_values_time)
-
+    Z = np.array(pdr_values_time[:X.shape[0]])
     ax.plot_surface(X, Y, Z, cmap='viridis')
     
     ax.set_title('3D Plot of Thresholds, PDR over Time', fontsize=16)
     ax.set_xlabel('Time (seconds)', fontsize=14)
     ax.set_ylabel('Threshold (th_1)', fontsize=14)
     ax.set_zlabel('PDR (%)', fontsize=14)
-    filename = f'results/pdr_vs_thresh_vs_time_{num_nodes}.png'
+    filename = f'results/Simulation_data/plots/pdr_vs_thresh_vs_time_{num_nodes}_{file_name}_run_{run_number}.png'
     plt.savefig(filename)
-    plt.show()
+    #plt.show()
 
-
-def save_results():
-    if not os.path.exists('results'):
-        os.makedirs('results')
-
+# Main execution logic...
 if __name__ == "__main__":
+    num_nodes = '120'
+    file_name = f'adjacency_{num_nodes}_0_7_1_updated.txt'
+    file_path = f'Test_data/MKU_files/internetworks/' + file_name
+    
     parser = argparse.ArgumentParser(description="Run network simulation.")
     parser.add_argument("--th_1", type=float, default=98.0, help="Threshold value for PDR")
+    parser.add_argument("--file", type=str, default=file_path, help="file definer for multiple runs")
     args = parser.parse_args()
 
     th_1 = args.th_1
-    num_nodes = '120'
-    file_path = f'Test_data/MKU_files/internetworks/adjacency_{num_nodes}_0_7_1_updated.txt'
-    start_node = 0  
-    destination_node = 65
-    duration = 35
-    num_attacks = 35
-    #test_nodes = [[11, 39],]
-    #run_simulation(file_path, start_node, destination_node, duration, num_attacks, th_1)
+    file_path = args.file
     
+    # Extract the base file name (without directories) for plot naming
+    file_name = os.path.basename(file_path).replace('.txt', '')
     
-    # th testing: 
-    thresholds = [1, 2, 3, 4, 5]
-    thresholds = [100 - t for t in thresholds]
+    duration = 25
+    num_attacks = 25
+    
 
-    pdr_values_time = []
 
-    for th_1 in thresholds:
-        pdr_values = run_simulation(file_path, start_node, destination_node, duration, num_attacks, th_1)
-        pdr_values_time.append(pdr_values)
+    run_and_record_simulations(file_path, duration, num_attacks)
 
-    plot_3d_thresholds_pdr_time(thresholds, pdr_values_time, duration, num_nodes)
