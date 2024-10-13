@@ -32,7 +32,7 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
                 nodes_to_attack = test_nodes[t // attacks_per_interval]
             else:
                 possible_nodes = list(set(network_graph.nodes) - {start_node, destination_node})
-                nodes_to_attack = random.sample(possible_nodes, k=random.randint(5, 10)) #15, 35 or 5, 10
+                nodes_to_attack = random.sample(possible_nodes, k=random.randint(10, 15)) #15, 35 or 5, 10
 
             initial_pdr = calculate_packet_delivery_ratio(network_graph, [initial_path])  # pre-attack
             
@@ -64,8 +64,8 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
         print(path)
 
     # Plot PDR over time and number of attacks
-    plot_pdr_over_time(pdr_values_time, 60)
-    plot_pdr_vs_attacks(pdr_values_attack, 60)
+    plot_pdr_over_time(pdr_values_time, 120)
+    plot_pdr_vs_attacks(pdr_values_attack, 120)
 
     #visualize_domains(network_graph, initial_path)
     save_results()
@@ -127,40 +127,53 @@ def plot_pdr_over_time(pdr_values, num_nodes):
     # Adjust x-values to reflect 0.5-second intervals
     x_values = [i / 2 for i in range(len(pdr_values))]
     
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(12, 8))
     plt.plot(x_values, pdr_values, marker='o', linestyle='-', color='b')
-    plt.title('Packet Delivery Ratio (PDR) Over Time', fontsize=16)
-    plt.xlabel('Time (seconds)', fontsize=14)
-    plt.ylabel('PDR (%)', fontsize=14)
-    plt.ylim(90, 100)
+    plt.title('Packet Delivery Ratio (PDR) Over Time', fontsize=28) 
+    plt.xlabel('Time (seconds)', fontsize=24)  
+    plt.ylabel('PDR (%)', fontsize=24)  
+    plt.ylim(95, 100)
+    
+    # Set fontsize for the x and y tick labels
+    plt.xticks(fontsize=21)  # Slightly increased fontsize for x-axis tick labels
+    plt.yticks(fontsize=21)  # Slightly increased fontsize for y-axis tick labels
+    
     plt.grid(True)
-    filename = f'results/pdr_over_time_{num_nodes}.png'
+    filename = f'results/pdr_over_time_{num_nodes}_new.png'
     plt.savefig(filename)
     plt.show()
 
 def plot_pdr_vs_attacks(pdr_values_attack, num_nodes):
     attacked_nodes, pdr_values = zip(*pdr_values_attack)
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(12, 8))
     plt.plot(attacked_nodes, pdr_values, marker='o', linestyle='-', color='r')
-    plt.title('Packet Delivery Ratio (PDR) vs Number of Nodes Attacked', fontsize=16)
-    plt.xlabel('Number of Nodes Attacked', fontsize=14)
-    plt.ylabel('PDR (%)', fontsize=14)
-    plt.ylim(90, 100)
+    plt.title('PDR vs Number of Nodes Attacked', fontsize=28)  
+    plt.xlabel('Number of Nodes Attacked', fontsize=24)  
+    plt.ylabel('PDR (%)', fontsize=24)  
+    plt.ylim(95, 100)
+    
+    # Set fontsize for the x and y tick labels
+    plt.xticks(fontsize=21)  # Slightly increased fontsize for x-axis tick labels
+    plt.yticks(fontsize=21)  # Slightly increased fontsize for y-axis tick labels
+    
     plt.grid(True)
-    filename = f'results/pdr_vs_attacks_{num_nodes}.png'
+    filename = f'results/pdr_vs_attacks_{num_nodes}_new.png'
     plt.savefig(filename)
     plt.show()
+
+
 
 def save_results():
     if not os.path.exists('results'):
         os.makedirs('results')
 
 if __name__ == "__main__":
-    file_path = 'Test_data/MKU_files/internetworks/adjacency_60_0_7_1_updated.txt'
-    start_node = 0  
-    destination_node = 20 #65, 20
-    duration = 25 #35
-    num_attacks = 25 #35
-    #test_nodes = [[14, 39], [4, 59], [11, 49], [47], [58], [23], [25, 7], [17,43], [18], [16]]  # Example list of lists for attacks
-    #run_simulation(file_path, start_node, destination_node, duration, num_attacks, test_nodes=test_nodes)
-    run_simulation(file_path, start_node, destination_node, duration, num_attacks) #, test_nodes=test_nodes)
+    while 1:
+        file_path = 'Test_data/MKU_files/internetworks/adjacency_120_0_7_1_updated.txt'
+        start_node = 0  
+        destination_node = 65 #65, 20
+        duration = 35 #35
+        num_attacks = 35 #35
+        #test_nodes = [[14, 39], [4, 59], [11, 49], [47], [58], [23], [25, 7], [17,43], [18], [16]]  # Example list of lists for attacks
+        #run_simulation(file_path, start_node, destination_node, duration, num_attacks, test_nodes=test_nodes)
+        run_simulation(file_path, start_node, destination_node, duration, num_attacks) #, test_nodes=test_nodes)
