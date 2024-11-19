@@ -100,17 +100,35 @@ def visualize_graph(graph, shortest_path=None, show_edge_labels=False, show_cros
 
 #     plt.show()
 
-def find_shortest_path(graph, start_node, destination_node):
+# def find_shortest_path(graph, start_node, destination_node):
+#     safe_graph = graph.copy()
+#     unsafe_nodes = [node for node in graph.nodes if not graph.nodes[node].get('safe', True)]
+#     safe_graph.remove_nodes_from(unsafe_nodes)
+    
+#     try:
+#         #return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='weight', method='dijkstra')
+#         return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='bandwidth', method='dijkstra')
+
+#     except nx.NetworkXNoPath:
+#         return None
+
+def find_shortest_path(graph, start_node, destination_node, min_path_len):
     safe_graph = graph.copy()
     unsafe_nodes = [node for node in graph.nodes if not graph.nodes[node].get('safe', True)]
     safe_graph.remove_nodes_from(unsafe_nodes)
-    
-    try:
-        #return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='weight', method='dijkstra')
-        return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='bandwidth', method='dijkstra')
 
-    except nx.NetworkXNoPath:
-        return None
+    while True:
+        try:
+            path = nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='bandwidth', method='dijkstra')
+            # Check if the found path length meets the minimum requirement
+            if len(path) >= min_path_len:
+                return path
+            else:
+                # Attempt to find a longer path by removing the last node from the safe graph
+                safe_graph.remove_node(path[-1])  # Remove the last node to force a different path
+        except nx.NetworkXNoPath:
+            # If no path is found, return None or raise an exception as per your design
+            return None
 
 def save_adjacency_matrix(graph, file_path):
     with open(file_path, 'w') as f:
@@ -149,27 +167,71 @@ def calculate_packet_delivery_ratio(graph, paths):
     return min(total_pdr / num_paths if num_paths else 100, 100)
 
 
-def find_node_disjoint_path(graph, start_node, destination_node, exclude_nodes):
+# def find_node_disjoint_path(graph, start_node, destination_node, exclude_nodes):
+#     # Create a subgraph that excludes the specified nodes, except start and end nodes
+#     safe_graph = graph.copy()
+#     unsafe_nodes = [node for node in graph.nodes if not graph.nodes[node].get('safe', True)]
+#     safe_graph.remove_nodes_from(unsafe_nodes)
+    
+#     # Ensure start and end nodes are not excluded
+#     exclude_nodes = [node for node in exclude_nodes if node not in [start_node, destination_node]]
+#     safe_graph.remove_nodes_from(exclude_nodes)
+    
+#     try:
+#         # Use Dijkstra's algorithm to find the shortest path in the safe graph
+#         #return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='weight', method='dijkstra')
+#         return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='bandwidth', method='dijkstra')
+
+#     except nx.NetworkXNoPath:
+#         return None
+
+def find_node_disjoint_path(graph, start_node, destination_node, exclude_nodes, min_path_len):
     # Create a subgraph that excludes the specified nodes, except start and end nodes
     safe_graph = graph.copy()
     unsafe_nodes = [node for node in graph.nodes if not graph.nodes[node].get('safe', True)]
     safe_graph.remove_nodes_from(unsafe_nodes)
-    
+
     # Ensure start and end nodes are not excluded
     exclude_nodes = [node for node in exclude_nodes if node not in [start_node, destination_node]]
     safe_graph.remove_nodes_from(exclude_nodes)
-    
-    try:
-        # Use Dijkstra's algorithm to find the shortest path in the safe graph
-        #return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='weight', method='dijkstra')
-        return nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='bandwidth', method='dijkstra')
 
-    except nx.NetworkXNoPath:
-        return None
-
-
+    while True:
+        try:
+            new_path = nx.shortest_path(safe_graph, source=start_node, target=destination_node, weight='bandwidth', method='dijkstra')
+            # Check if the found path length meets the minimum requirement
+            if len(new_path) >= min_path_len:
+                return new_path
+            else:
+                # Attempt to find a longer path by removing the last node from the safe graph
+                safe_graph.remove_node(new_path[-1])  # Remove the last node to force a different path
+        except nx.NetworkXNoPath:
+            return None
     
     
+
+# def add_node_disjoint_path(current_paths, graph, start_node, destination_node):
+#     # Collect all nodes that are part of the existing paths
+#     excluded_nodes = set(node for path in current_paths for node in path)
+    
+#     # Try to find a new node-disjoint path
+#     new_path = find_node_disjoint_path(graph, start_node, destination_node, excluded_nodes)
+    
+#     # If a new node-disjoint path is found and it's unique, add it to the list
+#     if new_path and new_path not in current_paths:
+#         current_paths.append(new_path)
+#     else:
+#         # If no new disjoint path is found, find any path, even including unsafe nodes
+#         try:
+#             all_nodes_to_exclude = excluded_nodes - {start_node, destination_node}
+#             all_path = nx.shortest_path(graph, source=start_node, target=destination_node, weight='weight', method='dijkstra')
+#             # Ensure the new path doesn't include the excluded nodes, unless it's the start or destination
+#             if all_path not in current_paths:
+#                 current_paths.append(all_path)
+#             print("Added a path with unsafe nodes")
+#         except nx.NetworkXNoPath:
+#             print("No path found to add :(")
+
+#     return current_paths
 
 def add_node_disjoint_path(current_paths, graph, start_node, destination_node):
     # Collect all nodes that are part of the existing paths
@@ -194,7 +256,6 @@ def add_node_disjoint_path(current_paths, graph, start_node, destination_node):
             print("No path found to add :(")
 
     return current_paths
-
 
 
 # Domain Algorithms: 

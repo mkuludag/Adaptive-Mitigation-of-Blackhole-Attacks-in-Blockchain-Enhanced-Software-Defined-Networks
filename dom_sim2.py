@@ -12,11 +12,11 @@ from graph_helpers import read_adjacency_matrices, find_shortest_path, visualize
 
 plt.switch_backend('TkAgg')
 
-def run_simulation(file_path, start_node, destination_node, duration, num_attacks, th_1=98.0, decrease_range=(1, 10), test_nodes=None):
+def run_simulation(file_path, start_node, destination_node, duration, num_attacks, th_1=98.0, decrease_range=(1, 10), test_nodes=None, min_path_len=0):
     network_graph = read_adjacency_matrices(file_path)
     pdr = 100.0
     current_paths = PriorityQueue()
-    initial_path = find_shortest_path(network_graph, start_node, destination_node)
+    initial_path = find_shortest_path(network_graph, start_node, destination_node, min_path_len)
     print("Initial path: ", initial_path)
     current_paths.put((-pdr, initial_path))
     
@@ -55,7 +55,7 @@ def run_simulation(file_path, start_node, destination_node, duration, num_attack
             new_pdr2 = None
 
             if new_pdr < th_1:
-                current_paths, initial_pdr, new_pdr2 = adapt_to_attack(network_graph, start_node, destination_node, current_paths, th_1, new_pdr)
+                current_paths, initial_pdr, new_pdr2 = adapt_to_attack(network_graph, start_node, destination_node, current_paths, th_1, new_pdr, min_path_len)
 
             if not current_paths.empty():
                 # Extract the path, store it, and reinsert it back into the queue
@@ -84,7 +84,7 @@ def adapt_to_attack(graph, start_node, destination_node, current_paths, th_1, ne
         paths.append(current_paths.get()[1])    
 
     if new_pdr < th_1:
-        new_path = find_node_disjoint_path(graph, start_node, destination_node, paths[0])
+        new_path = find_node_disjoint_path(graph, start_node, destination_node, paths[0], min_path_len)
         if new_path:
             paths[-1] = new_path
             current_paths.put((-new_pdr, new_path))
@@ -92,7 +92,7 @@ def adapt_to_attack(graph, start_node, destination_node, current_paths, th_1, ne
             print(f"Node-disjoint path found: {new_path} new_pdr: {new_pdr}")
         else:
             current_paths = PriorityQueue()            
-            paths2 = add_node_disjoint_path(paths, graph, start_node, destination_node)
+            paths2 = add_node_disjoint_path(paths, graph, start_node, destination_node, min_path_len)
             new_pdr = calculate_packet_delivery_ratio(graph, paths2)
             for path in paths2:
                 current_paths.put((-new_pdr, path))
@@ -145,7 +145,7 @@ def extract_num_nodes(file_name):
     else:
         raise ValueError("Number of nodes not found in the file name")
 
-def run_and_record_simulations(file_path, duration, num_attacks, num_runs=10):
+def run_and_record_simulations(file_path, duration, num_attacks, num_runs=10, min_path_len=0):
     file_name = os.path.basename(file_path)
     num_nodes = extract_num_nodes(file_name)
     results = []
@@ -158,7 +158,7 @@ def run_and_record_simulations(file_path, duration, num_attacks, num_runs=10):
         start_node, destination_node = random.sample(range(num_nodes - 1), 2)  
         for th_1 in thresholds:
             pdr_values_time, min_pdr, max_pdr, threshold_value, num_attacks_nodes, duration = run_simulation(
-                file_path, start_node, destination_node, duration, num_attacks, th_1
+                file_path, start_node, destination_node, duration, num_attacks, th_1, min_path_len
             )
             pdr_values_arr.append(pdr_values_time)
             
@@ -216,8 +216,8 @@ if __name__ == "__main__":
     
     duration = 25
     num_attacks = 25
-    
+    min_path_len = 5
 
 
-    run_and_record_simulations(file_path, duration, num_attacks)
+    run_and_record_simulations(file_path, duration, num_attacks, min_path_len)
 
